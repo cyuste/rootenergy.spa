@@ -1,0 +1,41 @@
+# Node.js with React
+# Build a Node.js project that uses React.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- master
+
+variables:
+  - group: rootenergy-spa
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '14.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    npm run build
+  displayName: 'npm install and build'
+
+- task: AWSCLI@1
+  displayName: Upload files to AWS
+  inputs:
+    awsCredentials: 'aws-rootenergy-srv-conn'
+    regionName: 'eu-west-1'
+    awsCommand: 's3'
+    awsSubCommand: 'sync'
+    awsArguments: 'dist s3://$(BUCKET_NAME) --acl public-read --delete'
+- task: AWSCLI@1
+  displayName: Run invalidations
+  inputs:
+    awsCredentials: 'aws-rootenergy-srv-conn'
+    regionName: 'eu-west-1'
+    awsCommand: 'cloudfront'
+    awsSubCommand: 'create-invalidation'
+    awsArguments: '--distribution-id $(DISTRIBUTION_ID) --paths /index.html'
